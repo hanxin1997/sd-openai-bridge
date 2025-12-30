@@ -1,9 +1,6 @@
 ```markdown
 # 🌉 SD-OpenAI Bridge
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/docker-ready-green.svg)](docker-compose.yml)
-
 **SD-OpenAI Bridge** 是一个轻量级的 API 转换中间件。它将标准的 **Stable Diffusion API** (SD WebUI 格式) 请求拦截并转换为 **OpenAI Chat Completions API** 格式。
 
 这个项目的主要目的是让仅支持 SD 协议的前端应用（如 **SillyTavern / 酒馆**）能够使用支持 OpenAI 格式的图像生成服务（如 DALL-E 3、`img-router` 或其他兼容 OpenAI 接口的生图服务）。
