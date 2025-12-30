@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SD-OpenAI Bridge</title>
+    <style>
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16213e;
+            --bg-input: #1f2937;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0c0;
+            --accent: #667eea;
+            --accent-hover: #764ba2;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: #374151;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+        header { text-align: center; padding: 20px 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+        h1 { font-size: 1.8em; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .subtitle { color: var(--text-secondary); font-size: 0.9em; margin-top: 8px; }
+        
+        .current-api-bar {
+            background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary));
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+        .current-api-info { flex: 1; min-width: 200px; }
+        .current-api-label { font-size: 0.85em; color: var(--text-secondary); }
+        .current-api-name { font-size: 1.2em; font-weight: 600; color: var(--accent); }
+        .current-api-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 1.3em; font-weight: bold; }
+        .stat-label { font-size: 0.75em; color: var(--text-secondary); }
+        
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab { flex: 1; min-width: 80px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); cursor: pointer; text-align: center; font-size: 0.9em; }
+        .tab:hover { background: var(--bg-card); }
+        .tab.active { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); border-color: transparent; }
+        
+        .panel { display: none; background: var(--bg-secondary); border-radius: 12px; padding: 20px; border: 1px solid var(--border); }
+        .panel.active { display: block; }
+        .panel-title { font-size: 1.2em; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+        
+        .form-group { margin-bottom: 16px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+        label { display: block; margin-bottom: 6px; color: var(--text-secondary); font-size: 0.9em; }
+        input[type="text"], input[type="number"], select { width: 100%; padding: 10px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); font-size: 0.95em; }
+        input:focus { outline: none; border-color: var(--accent); }
+        .checkbox-wrapper { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+        input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--accent); }
+        
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.9em; }
+        .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent-hover)); color: white; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-secondary { background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border); }
+        .btn-sm { padding: 6px 12px; font-size: 0.8em; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+        
+        .api-card { background: var(--bg-card); border-radius: 10px; padding: 16px; margin-bottom: 16px; border: 2px solid var(--border); transition: border-color 0.3s; }
+        .api-card.current { border-color: var(--accent); box-shadow: 0 0 20px rgba(102, 126, 234, 0.2); }
+        .api-card.banned { border-color: var(--danger); opacity: 0.7; }
+        .api-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+        .api-name { font-size: 1.1em; font-weight: 600; }
+        .api-status { font-size: 0.75em; padding: 3px 10px; border-radius: 12px; }
+        .api-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; font-size: 0.85em; }
+        .api-detail-item { display: flex; flex-direction: column; }
+        .api-detail-label { font-size: 0.8em; opacity: 0.7; }
+        .api-progress { margin-top: 12px; height: 6px; background: var(--bg-input); border-radius: 3px; overflow: hidden; }
+        .api-progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-hover)); transition: width 0.3s; }
+        .api-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+        
+        .log-container { background: #0a0a12; border-radius: 8px; padding: 12px; height: 350px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 0.8em; line-height: 1.6; }
+        .log-entry { padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .log-time { color: var(--text-secondary); margin-right: 10px; }
+        .log-level { padding: 1px 6px; border-radius: 3px; margin-right: 8px; font-size: 0.85em; }
+        .log-level.INFO { background: rgba(16, 185, 129, 0.3); color: var(--success); }
+        .log-level.WARNING { background: rgba(245, 158, 11, 0.3); color: var(--warning); }
+        .log-level.ERROR { background: rgba(239, 68, 68, 0.3); color: var(--danger); }
+        
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; padding: 16px; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: var(--bg-secondary); border-radius: 12px; padding: 24px; width: 100%; max-width: 500px; max-height: 90vh; overflow-y: auto; border: 1px solid var(--border); }
+        .modal-title { font-size: 1.2em; margin-bottom: 20px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        
+        .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; }
+        .toast { background: var(--bg-card); padding: 12px 20px; border-radius: 8px; margin-top: 10px; border-left: 4px solid var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.3); animation: slideIn 0.3s ease; }
+        .toast.success { border-left-color: var(--success); }
+        .toast.error { border-left-color: var(--danger); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        
+        .empty-state { text-align: center; padding: 40px; color: var(--text-secondary); }
+        
+        @media (max-width: 768px) {
+            .container { padding: 12px; }
+            .current-api-bar { flex-direction: column; text-align: center; }
+            .tabs { flex-direction: column; }
+            .panel { padding: 16px; }
+            .form-row { grid-template-columns: 1fr; }
+            .btn-group { flex-direction: column; }
+            .btn-group .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌉 SD-OpenAI Bridge</h1>
+            <p class="subtitle">Stable Diffusion API ↔ OpenAI API 转换中间件</p>
+        </header>
+
+        <div class="current-api-bar">
+            <div class="current-api-info">
+                <div class="current-api-label">🎯 当前使用</div>
+                <div class="current-api-name" id="currentApiName">加载中...</div>
+            </div>
+            <div class="current-api-stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="currentApiUsed">-</div>
+                    <div class="stat-label">已用/额度</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: var(--success);" id="currentApiSuccess">-</div>
+                    <div class="stat-label">总成功</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: var(--danger);" id="currentApiFail">-</div>
+                    <div class="stat-label">总失败</div>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="showSwitchModal()">🔄 切换API</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="apis">📡 API管理</button>
+            <button class="tab" data-tab="settings">⚙️ 设置</button>
+            <button class="tab" data-tab="logs">📋 日志</button>
+        </div>
+
+        <div class="panel active" id="panel-apis">
+            <div class="panel-title">
+                API端点管理
+                <button class="btn btn-primary btn-sm" onclick="showAddModal()" style="float:right;">➕ 添加</button>
+            </div>
+            <div id="apiList"><div class="empty-state">暂无API，点击添加</div></div>
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="resetAllQuotas()">🔄 重置所有额度</button>
+                <button class="btn btn-secondary" onclick="unbanAll()">🔓 解除所有封禁</button>
+                <button class="btn btn-primary" onclick="loadConfig()">🔃 刷新</button>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-settings">
+            <div class="panel-title">全局设置</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>默认轮询次数</label>
+                    <input type="number" id="defaultMaxSuccess" value="10" min="1">
+                </div>
+                <div class="form-group">
+                    <label>失败封禁阈值</label>
+                    <input type="number" id="defaultMaxFail" value="3" min="1">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>封禁时长(小时)</label>
+                    <input type="number" id="banDuration" value="24" min="1">
+                </div>
+                <div class="form-group">
+                    <label>请求超时(秒)</label>
+                    <input type="number" id="timeout" value="300" min="10">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>重试次数</label>
+                    <input type="number" id="retryCount" value="2" min="0">
+                </div>
+                <div class="form-group">
+                    <label>重试延迟(秒)</label>
+                    <input type="number" id="retryDelay" value="1" min="0" step="0.5">
+                </div>
+            </div>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="enableDetailedLog" checked>
+                <label for="enableDetailedLog" style="margin:0;">启用详细日志</label>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="saveSettings()">💾 保存设置</button>
+                <button class="btn btn-secondary" onclick="loadConfig()">🔃 重新加载</button>
+            </div>
+        </div>
+
+        <div class="panel" id="panel-logs">
+            <div class="panel-title">
+                运行日志
+                <button class="btn btn-danger btn-sm" onclick="clearLogs()" style="float:right;">🗑️ 清除</button>
+                <button class="btn btn-secondary btn-sm" onclick="loadLogs()" style="float:right;margin-right:8px;">🔃 刷新</button>
+            </div>
+            <div class="log-container" id="logContainer"><div class="empty-state">暂无日志</div></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="apiModal">
+        <div class="modal">
+            <div class="modal-title" id="modalTitle">添加API</div>
+            <input type="hidden" id="editApiId">
+            <div class="form-group">
+                <label>名称</label>
+                <input type="text" id="apiName" placeholder="我的API">
+            </div>
+            <div class="form-group">
+                <label>API地址</label>
+                <input type="text" id="apiUrl" placeholder="http://xxx/v1/chat/completions">
+            </div>
+            <div class="form-group">
+                <label>API Key</label>
+                <input type="text" id="apiKey" placeholder="Bearer token (可选)">
+            </div>
+            <div class="form-group">
+                <label>模型</label>
+                <input type="text" id="apiModel" placeholder="z-image-turbo">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>轮询次数</label>
+                    <input type="number" id="apiMaxSuccess" value="10" min="1">
+                </div>
+                <div class="form-group">
+                    <label>失败阈值</label>
+                    <input type="number" id="apiMaxFail" value="3" min="1">
+                </div>
+            </div>
+            <div class="checkbox-wrapper">
+                <input type="checkbox" id="apiEnabled" checked>
+                <label for="apiEnabled" style="margin:0;">启用此API</label>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveApi()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="switchModal">
+        <div class="modal">
+            <div class="modal-title">🔄 切换API</div>
+            <div id="switchApiList"></div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeSwitchModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        const API_BASE = window.location.protocol + '//' + window.location.hostname + ':7860';
+        let currentConfig = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabs();
+            loadConfig();
+            setInterval(loadConfig, 30000);
+        });
+
+        function initTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+                    if (tab.dataset.tab === 'logs') loadLogs();
+                });
+            });
+        }
+
+        async function apiRequest(endpoint, method = 'GET', data = null) {
+            const options = { method, headers: { 'Content-Type': 'application/json' } };
+            if (data) options.body = JSON.stringify(data);
+            try {
+                const response = await fetch(API_BASE + endpoint, options);
+                return await response.json();
+            } catch (error) {
+                showToast('请求失败: ' + error.message, 'error');
+                throw error;
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                currentConfig = await apiRequest('/api/config');
+                renderApiList();
+                renderSettings();
+                updateCurrentApiBar();
+            } catch (error) {
+                console.error('加载配置失败:', error);
+            }
+        }
+
+        function updateCurrentApiBar() {
+            if (!currentConfig) return;
+            const current = currentConfig.api_endpoints.find(a => a.is_current);
+            if (current) {
+                document.getElementById('currentApiName').textContent = current.name;
+                document.getElementById('currentApiUsed').textContent = `${current.success_count}/${current.max_success_count}`;
+                document.getElementById('currentApiSuccess').textContent = current.total_success;
+                document.getElementById('currentApiFail').textContent = current.total_fail;
+            } else {
+                document.getElementById('currentApiName').textContent = '无可用API';
+                document.getElementById('currentApiUsed').textContent = '-';
+                document.getElementById('currentApiSuccess').textContent = '-';
+                document.getElementById('currentApiFail').textContent = '-';
+            }
+        }
+
+        function renderApiList() {
+            const container = document.getElementById('apiList');
+            if (!currentConfig || !currentConfig.api_endpoints || currentConfig.api_endpoints.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无API，点击添加</div>';
+                return;
+            }
+            container.innerHTML = currentConfig.api_endpoints.map(api => {
+                const progress = api.max_success_count > 0 ? (api.success_count / api.max_success_count * 100) : 0;
+                let statusClass = '', statusText = '';
+                if (api.is_current) { statusClass = 'current'; statusText = '🎯 当前'; }
+                else if (api.is_banned) { statusClass = 'banned'; statusText = '🚫 封禁'; }
+                else if (!api.enabled) { statusText = '⏸️ 禁用'; }
+                else if (!api.is_available) { statusText = '⏳ 额度用尽'; }
+                else { statusText = '✅ 可用'; }
+                
+                return `
+                    <div class="api-card ${statusClass}">
+                        <div class="api-header">
+                            <div class="api-name">${escapeHtml(api.name)}</div>
+                            <span class="api-status">${statusText}</span>
+                        </div>
+                        <div class="api-details">
+                            <div class="api-detail-item"><span class="api-detail-label">模型</span>${escapeHtml(api.model)}</div>
+                            <div class="api-detail-item"><span class="api-detail-label">已用/额度</span>${api.success_count}/${api.max_success_count}</div>
+                            <div class="api-detail-item"><span class="api-detail-label">连续失败</span>${api.consecutive_fail_count}/${api.max_fail_count}</div>
+                            <div class="api-detail-item"><span class="api-detail-label">总成功</span><span style="color:var(--success)">${api.total_success}</span></div>
+                            <div class="api-detail-item"><span class="api-detail-label">总失败</span><span style="color:var(--danger)">${api.total_fail}</span></div>
+                        </div>
+                        <div class="api-progress"><div class="api-progress-bar" style="width:${progress}%"></div></div>
+                        <div class="api-actions">
+                            ${!api.is_current ? `<button class="btn btn-success btn-sm" onclick="switchApi('${api.id}')">🎯 使用</button>` : ''}
+                            <button class="btn btn-secondary btn-sm" onclick="editApi('${api.id}')">✏️ 编辑</button>
+                            <button class="btn btn-secondary btn-sm" onclick="resetQuota('${api.id}')">🔄 重置</button>
+                            ${api.is_banned ? `<button class="btn btn-warning btn-sm" onclick="unbanApi('${api.id}')">🔓 解封</button>` : ''}
+                            <button class="btn btn-danger btn-sm" onclick="deleteApi('${api.id}')">🗑️</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderSettings() {
+            if (!currentConfig) return;
+            document.getElementById('defaultMaxSuccess').value = currentConfig.default_max_success_count;
+            document.getElementById('defaultMaxFail').value = currentConfig.default_max_fail_count;
+            document.getElementById('banDuration').value = currentConfig.ban_duration_hours;
+            document.getElementById('timeout').value = currentConfig.timeout;
+            document.getElementById('retryCount').value = currentConfig.request_retry_count;
+            document.getElementById('retryDelay').value = currentConfig.request_retry_delay;
+            document.getElementById('enableDetailedLog').checked = currentConfig.enable_detailed_log;
+        }
+
+        async function saveSettings() {
+            const data = {
+                default_max_success_count: parseInt(document.getElementById('defaultMaxSuccess').value),
+                default_max_fail_count: parseInt(document.getElementById('defaultMaxFail').value),
+                ban_duration_hours: parseInt(document.getElementById('banDuration').value),
+                timeout: parseInt(document.getElementById('timeout').value),
+                request_retry_count: parseInt(document.getElementById('retryCount').value),
+                request_retry_delay: parseFloat(document.getElementById('retryDelay').value),
+                enable_detailed_log: document.getElementById('enableDetailedLog').checked,
+            };
+            try {
+                await apiRequest('/api/config', 'POST', data);
+                showToast('设置已保存', 'success');
+                loadConfig();
+            } catch (error) { showToast('保存失败', 'error'); }
+        }
+
+        function showAddModal() {
+            document.getElementById('modalTitle').textContent = '添加API';
+            document.getElementById('editApiId').value = '';
+            document.getElementById('apiName').value = '';
+            document.getElementById('apiUrl').value = '';
+            document.getElementById('apiKey').value = '';
+            document.getElementById('apiModel').value = 'z-image-turbo';
+            document.getElementById('apiMaxSuccess').value = currentConfig?.default_max_success_count || 10;
+            document.getElementById('apiMaxFail').value = currentConfig?.default_max_fail_count || 3;
+            document.getElementById('apiEnabled').checked = true;
+            document.getElementById('apiModal').classList.add('active');
+        }
+
+        function editApi(id) {
+            const api = currentConfig.api_endpoints.find(a => a.id === id);
+            if (!api) return;
+            document.getElementById('modalTitle').textContent = '编辑API';
+            document.getElementById('editApiId').value = api.id;
+            document.getElementById('apiName').value = api.name;
+            document.getElementById('apiUrl').value = api.api_url;
+            document.getElementById('apiKey').value = api.api_key;
+            document.getElementById('apiModel').value = api.model;
+            document.getElementById('apiMaxSuccess').value = api.max_success_count;
+            document.getElementById('apiMaxFail').value = api.max_fail_count;
+            document.getElementById('apiEnabled').checked = api.enabled;
+            document.getElementById('apiModal').classList.add('active');
+        }
+
+        function closeModal() { document.getElementById('apiModal').classList.remove('active'); }
+
+        async function saveApi() {
+            const id = document.getElementById('editApiId').value;
+            const apiData = {
+                name: document.getElementById('apiName').value || '新API',
+                api_url: document.getElementById('apiUrl').value,
+                api_key: document.getElementById('apiKey').value,
+                model: document.getElementById('apiModel').value || 'z-image-turbo',
+                max_success_count: parseInt(document.getElementById('apiMaxSuccess').value) || 10,
+                max_fail_count: parseInt(document.getElementById('apiMaxFail').value) || 3,
+                enabled: document.getElementById('apiEnabled').checked,
+            };
+            
+            if (!apiData.api_url) { 
+                showToast('请填写API地址', 'error'); 
+                return; 
+            }
+            
+            try {
+                if (id) {
+                    apiData.id = id;
+                    const endpoints = currentConfig.api_endpoints.map(ep => ep.id === id ? { ...ep, ...apiData } : ep);
+                    await apiRequest('/api/config', 'POST', { api_endpoints: endpoints });
+                } else {
+                    await apiRequest('/api/endpoints', 'POST', apiData);
+                }
+                showToast('保存成功', 'success');
+                closeModal();
+                loadConfig();
+            } catch (error) { showToast('保存失败', 'error'); }
+        }
+
+        async function deleteApi(id) {
+            if (!confirm('确定删除?')) return;
+            try {
+                await apiRequest(`/api/endpoints/${id}`, 'DELETE');
+                showToast('已删除', 'success');
+                loadConfig();
+            } catch (error) { showToast('删除失败', 'error'); }
+        }
+
+        async function switchApi(id) {
+            try {
+                await apiRequest(`/api/endpoints/${id}/switch`, 'POST');
+                showToast('已切换', 'success');
+                loadConfig();
+                closeSwitchModal();
+            } catch (error) { showToast('切换失败', 'error'); }
+        }
+
+        async function resetQuota(id) {
+            try {
+                await apiRequest(`/api/endpoints/${id}/reset`, 'POST');
+                showToast('已重置', 'success');
+                loadConfig();
+            } catch (error) { showToast('重置失败', 'error'); }
+        }
+
+        async function unbanApi(id) {
+            try {
+                await apiRequest(`/api/endpoints/${id}/unban`, 'POST');
+                showToast('已解封', 'success');
+                loadConfig();
+            } catch (error) { showToast('解封失败', 'error'); }
+        }
+
+        async function resetAllQuotas() {
+            if (!confirm('重置所有API额度?')) return;
+            try {
+                await apiRequest('/api/endpoints/reset-all', 'POST');
+                showToast('已重置', 'success');
+                loadConfig();
+            } catch (error) { showToast('重置失败', 'error'); }
+        }
+
+        async function unbanAll() {
+            if (!confirm('解除所有封禁?')) return;
+            try {
+                await apiRequest('/api/endpoints/unban-all', 'POST');
+                showToast('已解封', 'success');
+                loadConfig();
+            } catch (error) { showToast('解封失败', 'error'); }
+        }
+
+        function showSwitchModal() {
+            if (!currentConfig || !currentConfig.api_endpoints.length) {
+                showToast('没有可切换的API', 'warning');
+                return;
+            }
+            const list = document.getElementById('switchApiList');
+            list.innerHTML = currentConfig.api_endpoints.map(api => {
+                const isCurrent = api.is_current;
+                return `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;margin:8px 0;background:var(--bg-card);border-radius:8px;border:2px solid ${isCurrent ? 'var(--accent)' : 'var(--border)'};">
+                        <div>
+                            <div style="font-weight:600;">${escapeHtml(api.name)} ${isCurrent ? '🎯' : ''}</div>
+                            <div style="font-size:0.8em;color:var(--text-secondary);">${api.success_count}/${api.max_success_count} | 成功:${api.total_success}</div>
+                        </div>
+                        <button class="btn ${isCurrent ? 'btn-secondary' : 'btn-primary'} btn-sm" onclick="switchApi('${api.id}')" ${isCurrent ? 'disabled' : ''}>${isCurrent ? '当前' : '切换'}</button>
+                    </div>
+                `;
+            }).join('');
+            document.getElementById('switchModal').classList.add('active');
+        }
+
+        function closeSwitchModal() { document.getElementById('switchModal').classList.remove('active'); }
+
+        async function loadLogs() {
+            try {
+                const data = await apiRequest('/api/logs');
+                renderLogs(data.logs || []);
+            } catch (error) { console.error('加载日志失败:', error); }
+        }
+
+        function renderLogs(logs) {
+            const container = document.getElementById('logContainer');
+            if (!logs || logs.length === 0) {
+                container.innerHTML = '<div class="empty-state">暂无日志</div>';
+                return;
+            }
+            container.innerHTML = logs.slice().reverse().map(log => `
+                <div class="log-entry">
+                    <span class="log-time">${log.timestamp}</span>
+                    <span class="log-level ${log.level}">${log.level}</span>
+                    <span>${escapeHtml(log.message)}</span>
+                </div>
+            `).join('');
+        }
+
+        async function clearLogs() {
+            if (!confirm('清除所有日志?')) return;
+            try {
+                await apiRequest('/api/logs', 'DELETE');
+                showToast('已清除', 'success');
+                loadLogs();
+            } catch (error) { showToast('清除失败', 'error'); }
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        document.getElementById('apiModal').addEventListener('click', (e) => { if (e.target.classList.contains('modal-overlay')) closeModal(); });
+        document.getElementById('switchModal').addEventListener('click', (e) => { if (e.target.classList.contains('modal-overlay')) closeSwitchModal(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeModal(); closeSwitchModal(); } });
+    </script>
+</body>
+</html>
