@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  sd-openai-bridge:
+    build: .
+    container_name: sd-openai-bridge
+    ports:
+      - "7860:7860"
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+    restart: unless-stopped

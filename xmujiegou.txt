@@ -1,0 +1,15 @@
+sd-openai-bridge/
+├── docker-compose.yml
+├── Dockerfile
+├── requirements.txt
+├── supervisord.conf
+├── app/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── config.py
+│   ├── converter.py
+│   └── logger.py
+├── frontend/
+│   └── index.html
+└── data/
+    └── config.json
